@@ -1,6 +1,8 @@
+
 const path = require('path');
 
-// Load environment variables from backend/.env
+// Load backend/.env locally.
+// On Vercel, configure variables through Project Settings.
 require('dotenv').config({
   path: path.join(__dirname, '.env'),
 });
@@ -16,8 +18,6 @@ const PORT = process.env.PORT || 5000;
 // CORS CONFIGURATION
 // ============================================
 
-// Allow localhost only during development.
-// In production, configure the frontend using CLIENT_ORIGIN.
 const isProduction = process.env.NODE_ENV === 'production';
 
 const defaultOrigins = isProduction
@@ -46,37 +46,85 @@ const allowedOrigins = new Set([
 app.use(
   cors({
     origin(origin, callback) {
-      // Requests without an Origin header include many
-      // local tools and server-to-server requests.
-      // CORS is not a substitute for API authentication.
+      // Allow requests without an Origin header.
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
 
       console.warn(`CORS blocked origin: ${origin}`);
-
-      return callback(
-        new Error('Origin is not allowed by CORS')
-      );
+      return callback(new Error('Origin is not allowed by CORS'));
     },
-  })
+  }),
 );
 
-// Limit JSON request body size.
 app.use(express.json({ limit: '1mb' }));
 
-// Serve product images uploaded through the admin panel.
-app.use(
-  '/uploads',
-  express.static(path.join(__dirname, 'uploads'), {
-    dotfiles: 'deny',
-    index: false,
-  })
-);
+// Uploaded images are served locally only.
+// Vercel deployments need persistent image storage.
+if (process.env.VERCEL !== '1') {
+  app.use(
+    '/uploads',
+    express.static(path.join(__dirname, 'uploads'), {
+      dotfiles: 'deny',
+      index: false,
+    }),
+  );
+}
+
+// ============================================
+// MONGODB CONNECTION
+// Connect lazily for Vercel Function requests.
+// Reuse an existing connection when available.
+// ============================================
+
+let mongoConnectionPromise = null;
+
+async function connectToMongo() {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is missing from the environment');
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  if (!mongoConnectionPromise) {
+    mongoConnectionPromise = mongoose
+      .connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000,
+      })
+      .then(() => {
+        console.log('MongoDB connected successfully');
+        console.log(`Database: ${mongoose.connection.name}`);
+      })
+      .catch((error) => {
+        console.error('MongoDB connection failed:', error.message);
+        throw error;
+      })
+      .finally(() => {
+        mongoConnectionPromise = null;
+      });
+  }
+
+  await mongoConnectionPromise;
+}
+
+// Make sure database operations have a connection.
+// If MongoDB is unavailable, return a controlled error.
+app.use(async (req, res, next) => {
+  try {
+    await connectToMongo();
+    return next();
+  } catch (_error) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection unavailable',
+    });
+  }
+});
 
 // ============================================
 // API ROUTES
-// Register all API routes before the 404 handler.
 // ============================================
 
 app.use('/api/products', require('./routes/products'));
@@ -88,33 +136,22 @@ app.use('/api/orders', require('./routes/orders'));
 // ============================================
 
 app.get('/api/health', (req, res) => {
-  const states = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting',
-  };
-
-  const database =
-    states[mongoose.connection.readyState] || 'unknown';
-
   const connected = mongoose.connection.readyState === 1;
 
-  res.status(connected ? 200 : 503).json({
+  return res.status(connected ? 200 : 503).json({
     success: connected,
     message: 'VELSHE API is running',
-    database,
+    database: connected ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
   });
 });
 
 // ============================================
 // 404 HANDLER
-// Must remain after all registered routes.
 // ============================================
 
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
     message: 'API route not found',
   });
@@ -138,67 +175,47 @@ app.use((err, req, res, next) => {
     });
   }
 
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     message: 'An unexpected server error occurred',
   });
 });
 
 // ============================================
-// START SERVER
-// Connect to MongoDB before accepting requests.
+// EXPORT EXPRESS APP FOR VERCEL
 // ============================================
 
-async function startServer() {
-  if (!process.env.MONGODB_URI) {
-    console.error(
-      'MONGODB_URI is missing from backend/.env'
-    );
+// Vercel needs to discover the Express application.
+// Do not start a persistent listener inside Vercel Functions.
+module.exports = app;
 
-    process.exitCode = 1;
-    return;
-  }
+// ============================================
+// LOCAL DEVELOPMENT SERVER
+// ============================================
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
+async function startLocalServer() {
+  await connectToMongo();
+
+  app.listen(PORT, () => {
+    console.log(`VELSHE API running at http://localhost:${PORT}`);
+    console.log('Registered API routes:');
+    console.log('  - GET  /api/health');
+    console.log('  - /api/products');
+    console.log('  - /api/admin');
+    console.log('  - /api/orders');
+    console.log('Environment:', isProduction ? 'production' : 'development');
+    console.log('Allowed frontend origins:');
+
+    [...allowedOrigins].forEach((origin) => {
+      console.log(`  - ${origin}`);
     });
-
-    console.log('✅ MongoDB connected successfully');
-    console.log(`Database: ${mongoose.connection.name}`);
-
-    app.listen(PORT, () => {
-      console.log(
-        `✅ VELSHE API running at http://localhost:${PORT}`
-      );
-
-      console.log('Registered API routes:');
-      console.log('  - GET  /api/health');
-      console.log('  - /api/products');
-      console.log('  - /api/admin');
-      console.log('  - /api/orders');
-
-      console.log('Environment:', isProduction ? 'production' : 'development');
-      console.log('Allowed frontend origins:');
-
-      if (allowedOrigins.size === 0) {
-        console.warn(
-          '⚠️ No frontend origins configured. Set CLIENT_ORIGIN.'
-        );
-      }
-
-      [...allowedOrigins].forEach((origin) => {
-        console.log(`  - ${origin}`);
-      });
-    });
-  } catch (error) {
-    console.error(
-      '❌ MongoDB connection failed:',
-      error.message
-    );
-
-    process.exitCode = 1;
-  }
+  });
 }
 
-startServer();
+// Only start a persistent listener when running locally.
+if (require.main === module && process.env.VERCEL !== '1') {
+  startLocalServer().catch((error) => {
+    console.error('VELSHE API failed to start:', error.message);
+    process.exitCode = 1;
+  });
+}
