@@ -1,32 +1,67 @@
-
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
-const products = [
-  {
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+).replace(/\/+$/, '')
+
+const PRODUCT_PRESENTATION = {
+  forbidden: {
     number: '01',
-    name: 'FORBIDDEN',
     description: 'Bold. Magnetic. Unforgettable.',
-    image: '/products/forbidden-transparent.png',
-    price: 499,
   },
-  {
+  'frozen-rose': {
     number: '02',
-    name: 'FROZEN ROSE',
     description: 'A softer side of statement.',
-    image: '/products/frozen-rose-transparent.png',
-    price: 499,
   },
-]
+}
 
 function Arrow() {
   return <span className="arrow" aria-hidden="true">↗</span>
 }
 
+function getImageUrl(image) {
+  if (!image) return ''
+  if (image.startsWith('/uploads/')) {
+    return `${API_BASE}${image}`
+  }
+  return image
+}
+
 function App() {
+  const [products, setProducts] = useState([])
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [productsError, setProductsError] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [cart, setCart] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [orderSubmitting, setOrderSubmitting] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [orderConfirmation, setOrderConfirmation] = useState(null)
+
+  // Customer order tracking inside the shopping bag.
+  const [trackOrderFormOpen, setTrackOrderFormOpen] = useState(false)
+  const [trackOrderNumber, setTrackOrderNumber] = useState('')
+  const [trackOrderPhone, setTrackOrderPhone] = useState('')
+  const [trackOrderLoading, setTrackOrderLoading] = useState(false)
+  const [trackOrderError, setTrackOrderError] = useState('')
+  const [trackedOrder, setTrackedOrder] = useState(null)
+
+  const [customer, setCustomer] = useState({
+    name: '',
+    phone: '',
+    email: '',
+  })
+
+  const [shippingAddress, setShippingAddress] = useState({
+    addressLine1: '',
+    addressLine2: '',
+    landmark: '',
+    city: '',
+    state: '',
+    postalCode: '',
+  })
 
   const closeButtonRef = useRef(null)
   const cartCloseButtonRef = useRef(null)
@@ -41,18 +76,89 @@ function App() {
     0,
   )
 
-  // Reveal editorial content when it enters the viewport.
+  // Fetch the current product catalogue from the backend.
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadProducts() {
+      try {
+        setProductsLoading(true)
+        setProductsError('')
+
+        const response = await fetch(`${API_BASE}/api/products`, {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Product request failed (${response.status})`)
+        }
+
+        const result = await response.json()
+
+        if (!result.success || !Array.isArray(result.data)) {
+          throw new Error('Unexpected product API response')
+        }
+
+        const fetchedProducts = result.data
+          .map((item, index) => {
+            const slug = String(item.slug || '').toLowerCase()
+            const presentation = PRODUCT_PRESENTATION[slug] || {}
+            const image = item.image || item.images?.[0] || ''
+
+            return {
+              id: item._id,
+              slug,
+              number:
+                presentation.number ||
+                String(index + 1).padStart(2, '0'),
+              name: String(item.name || '').toUpperCase(),
+              description:
+                item.shortDescription ||
+                presentation.description ||
+                item.description ||
+                '',
+              image: getImageUrl(image),
+              price: Number(item.price ?? 0),
+              stock: Number(item.stock ?? 0),
+            }
+          })
+          .sort((a, b) => a.number.localeCompare(b.number))
+
+        setProducts(fetchedProducts)
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Failed to load VELSHE products:', error)
+          setProductsError(
+            'Our fragrances could not load. Please try again shortly.',
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductsLoading(false)
+        }
+      }
+    }
+
+    loadProducts()
+
+    return () => controller.abort()
+  }, [])
+
+  // Reveal editorial and product content as it enters the viewport.
   useEffect(() => {
     const reducedMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches
 
     if (reducedMotion || !('IntersectionObserver' in window)) {
+      document
+        .querySelectorAll('.reveal-on-scroll')
+        .forEach((element) => element.classList.add('is-visible'))
+
       return
     }
 
     const elements = document.querySelectorAll('.reveal-on-scroll')
-
     if (!elements.length) return
 
     const root = document.documentElement
@@ -79,9 +185,9 @@ function App() {
       observer.disconnect()
       root.classList.remove('reveal-enabled')
     }
-  }, [])
+  }, [products, productsLoading])
 
-  // Handle Escape and focus when a product or cart panel is open.
+  // Manage overlays, Escape key, and body scrolling.
   useEffect(() => {
     if (!selectedProduct && !isCartOpen) return
 
@@ -97,7 +203,7 @@ function App() {
     }
 
     function handleKeyDown(event) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !orderSubmitting) {
         setSelectedProduct(null)
         setIsCartOpen(false)
       }
@@ -113,9 +219,9 @@ function App() {
         previousFocus.focus()
       }
     }
-  }, [selectedProduct, isCartOpen])
+  }, [selectedProduct, isCartOpen, orderSubmitting])
 
-  // Desktop lighting and subtle product tilt.
+  // Cinematic desktop pointer lighting.
   function handleHeroPointerMove(event) {
     if (event.pointerType !== 'mouse') return
 
@@ -160,14 +266,18 @@ function App() {
   }
 
   function addToCart(product) {
+    setOrderConfirmation(null)
+    setCheckoutError('')
+    setCheckoutOpen(false)
+
     setCart((currentCart) => {
       const existing = currentCart.find(
-        (item) => item.number === product.number,
+        (item) => item.id === product.id,
       )
 
       if (existing) {
         return currentCart.map((item) =>
-          item.number === product.number
+          item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item,
         )
@@ -180,11 +290,11 @@ function App() {
     setIsCartOpen(true)
   }
 
-  function updateQuantity(productNumber, amount) {
+  function updateQuantity(productId, amount) {
     setCart((currentCart) =>
       currentCart
         .map((item) =>
-          item.number === productNumber
+          item.id === productId
             ? { ...item, quantity: item.quantity + amount }
             : item,
         )
@@ -192,9 +302,9 @@ function App() {
     )
   }
 
-  function removeFromCart(productNumber) {
+  function removeFromCart(productId) {
     setCart((currentCart) =>
-      currentCart.filter((item) => item.number !== productNumber),
+      currentCart.filter((item) => item.id !== productId),
     )
   }
 
@@ -202,10 +312,122 @@ function App() {
     if (!selectedProduct) return
 
     const otherProduct = products.find(
-      (product) => product.number !== selectedProduct.number,
+      (product) => product.id !== selectedProduct.id,
     )
 
-    if (otherProduct) setSelectedProduct(otherProduct)
+    if (otherProduct) {
+      setSelectedProduct(otherProduct)
+    }
+  }
+
+  // Verify an order using its order number and checkout phone number.
+  async function handleTrackOrder(event) {
+    event.preventDefault()
+    setTrackOrderError('')
+    setTrackedOrder(null)
+    setTrackOrderLoading(true)
+
+    try {
+      const response = await fetch(`${API_BASE}/api/orders/lookup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderNumber: trackOrderNumber.trim(),
+          phone: trackOrderPhone.trim(),
+        }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(
+          result.message || 'We could not verify your order.',
+        )
+      }
+
+      setTrackedOrder(result.data)
+    } catch (error) {
+      setTrackOrderError(
+        error.message || 'Unable to look up your order. Please try again.',
+      )
+    } finally {
+      setTrackOrderLoading(false)
+    }
+  }
+
+  // Submit a COD order. The backend verifies price and available stock.
+  async function submitOrder(event) {
+    event.preventDefault()
+    setCheckoutError('')
+
+    if (cart.length === 0) {
+      setCheckoutError('Your bag is empty.')
+      return
+    }
+
+    setOrderSubmitting(true)
+
+    try {
+      const response = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customer: {
+            name: customer.name.trim(),
+            phone: customer.phone.trim(),
+            email: customer.email.trim(),
+          },
+          shippingAddress: {
+            addressLine1: shippingAddress.addressLine1.trim(),
+            addressLine2: shippingAddress.addressLine2.trim(),
+            landmark: shippingAddress.landmark.trim(),
+            city: shippingAddress.city.trim(),
+            state: shippingAddress.state.trim(),
+            postalCode: shippingAddress.postalCode.trim(),
+            country: 'India',
+          },
+          paymentMethod: 'COD',
+          items: cart.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+          })),
+        }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || 'We could not place your order.',
+        )
+      }
+
+      setOrderConfirmation(result.data)
+
+      // Prefill tracking after a successful order.
+      setTrackOrderNumber(result.data.orderNumber || '')
+      setTrackOrderPhone(customer.phone.trim())
+      setTrackOrderFormOpen(true)
+      setTrackedOrder(null)
+      setTrackOrderError('')
+
+      setCart([])
+      setCheckoutOpen(false)
+      setCheckoutError('')
+      setIsCartOpen(true)
+    } catch (error) {
+      console.error('VELSHE order submission failed:', error)
+
+      setCheckoutError(
+        error.message || 'Unable to submit the order. Please try again.',
+      )
+    } finally {
+      setOrderSubmitting(false)
+    }
   }
 
   return (
@@ -383,49 +605,65 @@ function App() {
         </div>
 
         <div className="product-grid">
-          {products.map((product) => (
-            <article
-              className="product-card reveal-on-scroll"
-              key={product.number}
-            >
+          {productsLoading ? (
+            <p role="status">Loading VELSHE fragrances…</p>
+          ) : productsError ? (
+            <div role="alert">
+              <p>{productsError}</p>
               <button
-                className="product-image-wrap"
                 type="button"
-                onClick={() => setSelectedProduct(product)}
-                aria-label={`Discover ${product.name}`}
-                aria-haspopup="dialog"
+                onClick={() => window.location.reload()}
               >
-                <span className="product-number">
-                  {product.number}
-                </span>
-
-                <img
-                  className="product-image"
-                  src={product.image}
-                  alt={`VELSHE ${product.name} perfume`}
-                  loading="lazy"
-                />
-
-                <span className="product-image-action">
-                  DISCOVER <Arrow />
-                </span>
+                TRY AGAIN
               </button>
+            </div>
+          ) : products.length === 0 ? (
+            <p>No fragrances are available right now.</p>
+          ) : (
+            products.map((product) => (
+              <article
+                className="product-card reveal-on-scroll"
+                key={product.id}
+              >
+                <button
+                  className="product-image-wrap"
+                  type="button"
+                  onClick={() => setSelectedProduct(product)}
+                  aria-label={`Discover ${product.name}`}
+                  aria-haspopup="dialog"
+                >
+                  <span className="product-number">
+                    {product.number}
+                  </span>
 
-              <div className="product-details">
-                <div>
-                  <h3>{product.name}</h3>
-                  <p>{product.description}</p>
-                  <p className="product-price">
-                    ₹{product.price.toLocaleString('en-IN')}
-                  </p>
+                  <img
+                    className="product-image"
+                    src={product.image}
+                    alt={`VELSHE ${product.name} perfume`}
+                    loading="lazy"
+                  />
+
+                  <span className="product-image-action">
+                    DISCOVER <Arrow />
+                  </span>
+                </button>
+
+                <div className="product-details">
+                  <div>
+                    <h3>{product.name}</h3>
+                    <p>{product.description}</p>
+                    <p className="product-price">
+                      ₹{product.price.toLocaleString('en-IN')}
+                    </p>
+                  </div>
+
+                  <span className="product-count">
+                    {product.number} / 02
+                  </span>
                 </div>
-
-                <span className="product-count">
-                  {product.number} / 02
-                </span>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))
+          )}
         </div>
       </section>
 
@@ -478,7 +716,7 @@ function App() {
         </span>
       </footer>
 
-      {/* Product discovery modal */}
+      {/* Fragrance detail modal */}
       {selectedProduct && (
         <div
           className="fragrance-dialog-overlay"
@@ -576,12 +814,15 @@ function App() {
         </div>
       )}
 
-      {/* Sliding shopping bag */}
+      {/* Shopping bag and checkout */}
       {isCartOpen && (
         <div
           className="cart-overlay"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
+            if (
+              event.target === event.currentTarget &&
+              !orderSubmitting
+            ) {
               setIsCartOpen(false)
             }
           }}
@@ -606,21 +847,214 @@ function App() {
                 className="cart-close"
                 type="button"
                 aria-label="Close shopping bag"
+                disabled={orderSubmitting}
                 onClick={() => setIsCartOpen(false)}
               >
                 ×
               </button>
             </div>
 
-            {cart.length === 0 ? (
+            {/* Order tracking inside the bag drawer */}
+            <section className="bag-order-tracking">
+              <button
+                type="button"
+                className="bag-order-track-toggle"
+                onClick={() => {
+                  setTrackOrderFormOpen((open) => !open)
+                  setTrackOrderError('')
+                }}
+                aria-expanded={trackOrderFormOpen}
+              >
+                {trackOrderFormOpen
+                  ? 'CLOSE ORDER TRACKING −'
+                  : 'TRACK AN EXISTING ORDER ＋'}
+              </button>
+
+              {trackOrderFormOpen && (
+                <div className="bag-order-track-content">
+                  <p className="bag-order-track-intro">
+                    Already placed an order? Enter your order
+                    number and checkout phone number to check
+                    its current status.
+                  </p>
+
+                  <form onSubmit={handleTrackOrder}>
+                    <label htmlFor="bag-track-order-number">
+                      ORDER NUMBER
+                    </label>
+                    <input
+                      id="bag-track-order-number"
+                      type="text"
+                      value={trackOrderNumber}
+                      onChange={(event) =>
+                        setTrackOrderNumber(event.target.value)
+                      }
+                      placeholder="VLS-XXXXXXXX-XXXXXX"
+                      autoComplete="off"
+                      maxLength={40}
+                      required
+                    />
+
+                    <label htmlFor="bag-track-order-phone">
+                      CHECKOUT PHONE NUMBER
+                    </label>
+                    <input
+                      id="bag-track-order-phone"
+                      type="tel"
+                      value={trackOrderPhone}
+                      onChange={(event) =>
+                        setTrackOrderPhone(event.target.value)
+                      }
+                      placeholder="Phone number used at checkout"
+                      autoComplete="tel"
+                      required
+                    />
+
+                    {trackOrderError && (
+                      <p
+                        className="bag-order-track-error"
+                        role="alert"
+                      >
+                        {trackOrderError}
+                      </p>
+                    )}
+
+                    <button
+                      className="bag-order-track-submit"
+                      type="submit"
+                      disabled={trackOrderLoading}
+                    >
+                      {trackOrderLoading
+                        ? 'CHECKING ORDER...'
+                        : 'CHECK ORDER STATUS'}
+                    </button>
+                  </form>
+
+                  {trackedOrder && (
+                    <div
+                      className="bag-order-track-result"
+                      aria-live="polite"
+                    >
+                      <p className="bag-order-track-result-label">
+                        ORDER VERIFIED
+                      </p>
+
+                      <h3>{trackedOrder.orderNumber}</h3>
+
+                      <p>
+                        Status:{' '}
+                        <strong>
+                          {String(
+                            trackedOrder.status || 'pending',
+                          ).toUpperCase()}
+                        </strong>
+                      </p>
+
+                      {(trackedOrder.items || []).map(
+                        (item, index) => (
+                          <div
+                            className="bag-order-track-item"
+                            key={`${item.name}-${index}`}
+                          >
+                            <span>
+                              {item.name} × {item.quantity}
+                            </span>
+
+                            <span>
+                              ₹
+                              {(
+                                Number(item.price || 0) *
+                                Number(item.quantity || 0)
+                              ).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ),
+                      )}
+
+                      <div className="bag-order-track-total">
+                        <span>ORDER TOTAL</span>
+                        <strong>
+                          ₹
+                          {Number(
+                            trackedOrder.total || 0,
+                          ).toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+
+                      <p className="bag-order-track-payment">
+                        Payment: {trackedOrder.paymentMethod || 'COD'} ·{' '}
+                        {trackedOrder.paymentStatus || 'pending'}
+                      </p>
+
+                      <button
+                        type="button"
+                        className="bag-order-track-reset"
+                        onClick={() => {
+                          setTrackedOrder(null)
+                          setTrackOrderNumber('')
+                          setTrackOrderPhone('')
+                          setTrackOrderError('')
+                        }}
+                      >
+                        LOOK UP ANOTHER ORDER
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Order confirmation */}
+            {orderConfirmation ? (
+              <div className="cart-empty cart-order-success">
+                <span
+                  className="cart-empty-mark"
+                  aria-hidden="true"
+                >
+                  ✓
+                </span>
+
+                <h3>Order request received.</h3>
+                <p>Your order number is:</p>
+                <strong>{orderConfirmation.orderNumber}</strong>
+
+                <p>
+                  Payment method: Cash on Delivery.
+                  Payment status: pending.
+                </p>
+
+                <p>
+                  Total: ₹
+                  {Number(
+                    orderConfirmation.total,
+                  ).toLocaleString('en-IN')}
+                </p>
+
+                <button
+                  type="button"
+                  className="cart-continue"
+                  onClick={() => {
+                    setIsCartOpen(false)
+                    setOrderConfirmation(null)
+                  }}
+                >
+                  CONTINUE SHOPPING <Arrow />
+                </button>
+              </div>
+            ) : cart.length === 0 ? (
               <div className="cart-empty">
-                <span className="cart-empty-mark" aria-hidden="true">
+                <span
+                  className="cart-empty-mark"
+                  aria-hidden="true"
+                >
                   V.
                 </span>
+
                 <h3>Your bag is waiting.</h3>
                 <p>
                   Find the fragrance that feels like your signature.
                 </p>
+
                 <button
                   type="button"
                   className="cart-continue"
@@ -633,7 +1067,7 @@ function App() {
               <>
                 <div className="cart-items">
                   {cart.map((item) => (
-                    <article className="cart-item" key={item.number}>
+                    <article className="cart-item" key={item.id}>
                       <div className="cart-item-image">
                         <img
                           src={item.image}
@@ -656,7 +1090,10 @@ function App() {
                           <button
                             type="button"
                             aria-label={`Decrease ${item.name} quantity`}
-                            onClick={() => updateQuantity(item.number, -1)}
+                            disabled={orderSubmitting}
+                            onClick={() =>
+                              updateQuantity(item.id, -1)
+                            }
                           >
                             −
                           </button>
@@ -668,7 +1105,10 @@ function App() {
                           <button
                             type="button"
                             aria-label={`Increase ${item.name} quantity`}
-                            onClick={() => updateQuantity(item.number, 1)}
+                            disabled={orderSubmitting}
+                            onClick={() =>
+                              updateQuantity(item.id, 1)
+                            }
                           >
                             +
                           </button>
@@ -677,13 +1117,19 @@ function App() {
 
                       <div className="cart-item-end">
                         <strong>
-                          ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                          ₹
+                          {(
+                            item.price * item.quantity
+                          ).toLocaleString('en-IN')}
                         </strong>
 
                         <button
                           className="cart-remove"
                           type="button"
-                          onClick={() => removeFromCart(item.number)}
+                          disabled={orderSubmitting}
+                          onClick={() =>
+                            removeFromCart(item.id)
+                          }
                           aria-label={`Remove ${item.name} from bag`}
                         >
                           Remove
@@ -695,33 +1141,237 @@ function App() {
 
                 <div className="cart-summary">
                   <div className="cart-subtotal">
-                    <span>Subtotal</span>
+                    <span>Estimated subtotal</span>
                     <strong>
                       ₹{cartSubtotal.toLocaleString('en-IN')}
                     </strong>
                   </div>
 
                   <p className="cart-shipping-note">
-                    Shipping and any applicable taxes are calculated
-                    during checkout.
+                    The server verifies final prices and available stock
+                    when you place an order. Shipping is currently set
+                    to ₹0 for development.
                   </p>
 
                   <button
                     type="button"
                     className="cart-checkout"
-                    disabled
+                    disabled={orderSubmitting}
+                    onClick={() => {
+                      setCheckoutOpen((open) => !open)
+                      setCheckoutError('')
+                    }}
                   >
-                    CHECKOUT SETUP COMING NEXT
+                    {checkoutOpen
+                      ? 'CLOSE CHECKOUT'
+                      : 'CHECKOUT · CASH ON DELIVERY'}
                   </button>
 
-                  <p className="cart-checkout-note">
-                    This demo bag does not place orders or process
-                    payments yet.
-                  </p>
+                  {checkoutOpen && (
+                    <form
+                      className="checkout-form"
+                      onSubmit={submitOrder}
+                    >
+                      <h3>Delivery details</h3>
+                      <p>
+                        Enter your details to submit a Cash on Delivery
+                        order request.
+                      </p>
+
+                      <label>
+                        Full name *
+                        <input
+                          required
+                          maxLength={120}
+                          autoComplete="name"
+                          value={customer.name}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setCustomer((current) => ({
+                              ...current,
+                              name: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Phone number *
+                        <input
+                          required
+                          type="tel"
+                          maxLength={25}
+                          autoComplete="tel"
+                          value={customer.phone}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setCustomer((current) => ({
+                              ...current,
+                              phone: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <label>
+  Email address *
+  <input
+    required
+    type="email"
+    maxLength={254}
+    autoComplete="email"
+    value={customer.email}
+    disabled={orderSubmitting}
+    onChange={(event) =>
+      setCustomer((current) => ({
+        ...current,
+        email: event.target.value,
+      }))
+    }
+  />
+</label>
+                        <input
+                          type="email"
+                          maxLength={254}
+                          autoComplete="email"
+                          value={customer.email}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setCustomer((current) => ({
+                              ...current,
+                              email: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Address line 1 *
+                        <input
+                          required
+                          maxLength={200}
+                          autoComplete="address-line1"
+                          value={shippingAddress.addressLine1}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              addressLine1: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Address line 2
+                        <input
+                          maxLength={200}
+                          autoComplete="address-line2"
+                          value={shippingAddress.addressLine2}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              addressLine2: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Landmark (optional)
+                        <input
+                          maxLength={120}
+                          value={shippingAddress.landmark}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              landmark: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        City *
+                        <input
+                          required
+                          maxLength={100}
+                          autoComplete="address-level2"
+                          value={shippingAddress.city}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              city: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        State *
+                        <input
+                          required
+                          maxLength={100}
+                          autoComplete="address-level1"
+                          value={shippingAddress.state}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              state: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        PIN code *
+                        <input
+                          required
+                          maxLength={12}
+                          autoComplete="postal-code"
+                          value={shippingAddress.postalCode}
+                          disabled={orderSubmitting}
+                          onChange={(event) =>
+                            setShippingAddress((current) => ({
+                              ...current,
+                              postalCode: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      {checkoutError && (
+                        <p className="checkout-error" role="alert">
+                          {checkoutError}
+                        </p>
+                      )}
+
+                      <button
+                        className="cart-checkout"
+                        type="submit"
+                        disabled={orderSubmitting}
+                      >
+                        {orderSubmitting
+                          ? 'PLACING ORDER…'
+                          : 'PLACE COD ORDER'}
+                      </button>
+
+                      <p className="cart-checkout-note">
+                        This creates a Cash on Delivery order request.
+                        No online payment is processed.
+                      </p>
+                    </form>
+                  )}
 
                   <button
                     type="button"
                     className="cart-continue"
+                    disabled={orderSubmitting}
                     onClick={() => setIsCartOpen(false)}
                   >
                     CONTINUE EXPLORING <Arrow />
