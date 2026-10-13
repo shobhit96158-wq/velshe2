@@ -19,8 +19,14 @@ const router = express.Router();
 // IMAGE UPLOAD CONFIGURATION
 // ============================================
 
+const isVercel = process.env.VERCEL === '1';
 const uploadsDir = path.join(__dirname, '..', 'uploads');
-fs.mkdirSync(uploadsDir, { recursive: true });
+
+// Vercel's deployed application directory is not writable.
+// Create the uploads directory only during local development.
+if (!isVercel) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const imageTypes = {
   'image/jpeg': '.jpg',
@@ -291,6 +297,13 @@ router.post('/login', adminLoginLimiter, async (req, res) => {
 
 // POST /api/admin/upload
 router.post('/upload', requireAdmin, (req, res, next) => {
+      if (process.env.VERCEL === '1') {
+    return res.status(503).json({
+      success: false,
+      message:
+        'Image uploads are temporarily unavailable until persistent image storage is configured.',
+    });
+  }
   imageUpload.single('image')(req, res, (error) => {
     if (error) {
       const message =
