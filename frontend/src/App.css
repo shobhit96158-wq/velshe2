@@ -4230,3 +4230,72 @@ button.product-image-wrap:focus-visible {
     padding: 12px;
   }
 }
+
+/* ==========================================
+   VELSHE — CUSTOMER CARE FOOTER
+   ========================================== */
+
+.footer-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 28px 0 22px;
+  padding: 30px 16px;
+  border-top: 1px solid rgba(212, 180, 127, 0.24);
+  border-bottom: 1px solid rgba(212, 180, 127, 0.24);
+  text-align: center;
+}
+
+.footer-contact-eyebrow {
+  margin: 0;
+  color: #d4b47f;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+}
+
+.footer-contact h3 {
+  margin: 0;
+  color: #f4efe5;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 4vw, 36px);
+  font-weight: 400;
+}
+
+.footer-contact-email,
+.footer-contact-phones a {
+  color: #c9b99e;
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.footer-contact-email {
+  margin-top: 3px;
+}
+
+.footer-contact-phones {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-contact-phones span {
+  color: #8e7958;
+}
+
+@media (hover: hover) {
+  .footer-contact-email:hover,
+  .footer-contact-phones a:hover {
+    color: #e6c78f;
+  }
+}
+
+.footer-contact-email:focus-visible,
+.footer-contact-phones a:focus-visible {
+  outline: 1px solid #d4b47f;
+  outline-offset: 4px;
+}

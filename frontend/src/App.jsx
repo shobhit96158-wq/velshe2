@@ -919,15 +919,33 @@ function App() {
           FRAGRANCE, REIMAGINED.
         </span>
 
-        <div className="footer-links">
-          <a href="#story">Our Story</a>
-          <a href="#collection">Collection</a>
-          <a href="#top">Back to top ↑</a>
-        </div>
+       
+<div className="footer-links">
+  <a href="#story">Our Story</a>
+  <a href="#collection">Collection</a>
+  <a href="#top">Back to top ↑</a>
+</div>
 
-        <span className="copyright">
-          © 2026 VELSHE. ALL RIGHTS RESERVED.
-        </span>
+<section className="footer-contact" aria-labelledby="footer-contact-title">
+  <p className="footer-contact-eyebrow">WE'RE HERE FOR YOU</p>
+
+  <h3 id="footer-contact-title">Customer Care</h3>
+
+  <a className="footer-contact-email" href="mailto:velshe7@gmail.com">
+    velshe7@gmail.com
+  </a>
+
+  <div className="footer-contact-phones">
+    <a href="tel:8090544819">8090544819</a>
+    <span aria-hidden="true">·</span>
+    <a href="tel:8858702593">8858702593</a>
+  </div>
+</section>
+
+<span className="copyright">
+  © 2026 VELSHE. ALL RIGHTS RESERVED.
+</span>
+
       </footer>
 
       {/* Fragrance detail modal */}
