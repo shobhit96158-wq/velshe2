@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  import.meta.env.VITE_API_BASE_URL || 'https://velshe-api.vercel.app'
 ).replace(/\/+$/, '')
 
 const PRODUCT_PRESENTATION = {

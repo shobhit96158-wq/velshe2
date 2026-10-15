@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import './Admin.css'
 
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  import.meta.env.VITE_API_BASE_URL || 'https://velshe-api.vercel.app'
 ).replace(/\/+$/, '')
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
