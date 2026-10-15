@@ -4021,3 +4021,33 @@ button.product-image-wrap:focus-visible {
     transition: none;
   }
 }
+
+/* VELSHE gold monogram replacing the registered symbol */
+
+.wordmark .wordmark-monogram {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 0.78em;
+  height: 0.78em;
+  margin-top: -0.06em;
+  margin-left: 0.02em;
+  color: #d4b47f;
+  line-height: 1;
+}
+
+.wordmark .wordmark-monogram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.wordmark .wordmark-monogram path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4.5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}

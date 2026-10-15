@@ -17,6 +17,19 @@ const PRODUCT_PRESENTATION = {
 }
 
 function Arrow() {
+  
+function BrandMonogram() {
+  return (
+    <span className="wordmark-monogram" aria-hidden="true">
+      <svg viewBox="0 0 64 64" focusable="false">
+        <path d="M7 8 L32 55 L57 8" />
+        <path d="M16 8 L32 38 L48 8" />
+        <path d="M25 8 L32 21 L39 8" />
+      </svg>
+    </span>
+  )
+}
+
   return <span className="arrow" aria-hidden="true">↗</span>
 }
 
@@ -463,7 +476,7 @@ useEffect(() => {
       {/* Navigation */}
       <header className="site-header">
         <a className="wordmark" href="#top" aria-label="VELSHE home">
-          VELSHE<span aria-hidden="true">®</span>
+          VELSHE<BrandMonogram />
         </a>
 
         <nav className="navigation" aria-label="Main navigation">
@@ -855,7 +868,7 @@ useEffect(() => {
       {/* Footer */}
       <footer className="site-footer">
         <a className="wordmark" href="#top">
-          VELSHE<span aria-hidden="true">®</span>
+          VELSHE<BrandMonogram />
         </a>
 
         <span className="footer-tagline">
