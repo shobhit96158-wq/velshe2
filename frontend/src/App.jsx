@@ -514,11 +514,15 @@ function App() {
       </div>
 
       {/* Navigation */}
-      <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="VELSHE home">
-          VELSHE<BrandMonogram />
-        </a>
-
+   
+<header className="site-header">
+  <a
+    className="wordmark wordmark-image"
+    href="#top"
+    aria-label="VELSHE home"
+  >
+    <img src="/velshe-logo.jpeg" alt="VELSHE Perfume" />
+  </a>
         <nav className="navigation" aria-label="Main navigation">
           <a href="#story">Our Story</a>
           <a href="#collection">Fragrances</a>

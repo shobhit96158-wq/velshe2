@@ -4051,3 +4051,79 @@ button.product-image-wrap:focus-visible {
   stroke-linecap: square;
   stroke-linejoin: miter;
 }
+/* FIX: Keep the VELSHE logo inside the header */
+
+.site-header .wordmark.wordmark-image {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 68px !important;
+  width: 68px !important;
+  height: 68px !important;
+  max-width: 68px !important;
+  max-height: 68px !important;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.site-header .wordmark.wordmark-image img {
+  display: block !important;
+  width: 68px !important;
+  height: 68px !important;
+  min-width: 0 !important;
+  max-width: 68px !important;
+  min-height: 0 !important;
+  max-height: 68px !important;
+  flex: 0 0 68px !important;
+  object-fit: contain !important;
+}
+
+/* Footer logo */
+.site-footer .wordmark.wordmark-image {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 76px !important;
+  height: 76px !important;
+  max-width: 76px !important;
+  max-height: 76px !important;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.site-footer .wordmark.wordmark-image img {
+  display: block !important;
+  width: 76px !important;
+  height: 76px !important;
+  max-width: 76px !important;
+  max-height: 76px !important;
+  object-fit: contain !important;
+}
+
+/* Mobile sizing */
+@media (max-width: 650px) {
+  .site-header .wordmark.wordmark-image,
+  .site-header .wordmark.wordmark-image img {
+    width: 54px !important;
+    height: 54px !important;
+    max-width: 54px !important;
+    max-height: 54px !important;
+    flex-basis: 54px !important;
+  }
+}
+/* Make the VELSHE emblem circular */
+.site-header .wordmark.wordmark-image img,
+.site-footer .wordmark.wordmark-image img {
+  display: block !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  background: transparent !important;
+}
+
+/* Keep the logo neatly centered */
+.site-header .wordmark.wordmark-image,
+.site-footer .wordmark.wordmark-image {
+  overflow: hidden;
+  border-radius: 50%;
+  line-height: 0;
+}
