@@ -4127,3 +4127,106 @@ button.product-image-wrap:focus-visible {
   border-radius: 50%;
   line-height: 0;
 }
+
+/* ==========================================
+   VELSHE — CART & CHECKOUT VISUAL SEPARATION
+   ========================================== */
+
+/* Order tracking becomes its own champagne panel */
+.cart-drawer .bag-order-tracking {
+  margin: 18px 0 20px;
+  padding: 14px 14px 16px;
+  border: 1px solid #d6c5ab;
+  background: #ede2d1;
+}
+
+/* Make the bag summary easier to distinguish */
+.cart-drawer .cart-summary {
+  margin-top: 14px;
+  padding: 20px 16px 16px;
+  border: 1px solid #dac9b0;
+  background: #f0e6d7;
+}
+
+/* Separate delivery details with the brand's deep navy */
+.cart-drawer .checkout-form {
+  margin-top: 20px;
+  padding: 22px 18px;
+  border: 1px solid #a98751;
+  background: #071321;
+  color: #f4efe5;
+}
+
+/* Checkout heading */
+.cart-drawer .checkout-form h3 {
+  color: #f4efe5;
+  font-size: 25px;
+}
+
+/* Supporting text and checkout disclaimer */
+.cart-drawer .checkout-form > p:not(.checkout-error) {
+  color: #c8c0b3;
+}
+
+.cart-drawer .checkout-form .cart-checkout-note {
+  color: #c8c0b3;
+}
+
+/* Delivery field labels */
+.cart-drawer .checkout-form > label {
+  color: #e3cfaa;
+}
+
+/* Keep input fields bright and easy to read */
+.cart-drawer .checkout-form input {
+  background: #fffaf1;
+  border-color: #c6b79f;
+  color: #211e19;
+}
+
+.cart-drawer .checkout-form input::placeholder {
+  color: #8b8174;
+}
+
+/* Gold primary order button */
+.cart-drawer .checkout-form button[type="submit"] {
+  min-height: 50px;
+  border: 1px solid #d4b47f;
+  background: #d4b47f;
+  color: #071321;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease;
+}
+
+.cart-drawer .checkout-form button[type="submit"]:hover:not(:disabled) {
+  background: #e5c994;
+}
+
+.cart-drawer .checkout-form button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Keep checkout errors clearly visible */
+.cart-drawer .checkout-form .checkout-error {
+  padding: 12px;
+  border: 1px solid #e5a49a;
+  background: #fbefeb;
+  color: #923c30;
+}
+
+/* Mobile spacing */
+@media (max-width: 480px) {
+  .cart-drawer .checkout-form {
+    padding: 18px 14px;
+  }
+
+  .cart-drawer .cart-summary {
+    padding: 16px 12px 14px;
+  }
+
+  .cart-drawer .bag-order-tracking {
+    padding: 12px;
+  }
+}
