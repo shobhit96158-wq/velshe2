@@ -17,27 +17,64 @@ const PRODUCT_PRESENTATION = {
 }
 
 function Arrow() {
-  
+  return <span className="arrow" aria-hidden="true">↗</span>
+}
+
 function BrandMonogram() {
   return (
-    <span className="wordmark-monogram" aria-hidden="true">
+    <span
+      className="wordmark-monogram"
+      aria-hidden="true"
+      style={{
+        display: 'inline-flex',
+        flex: '0 0 auto',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '0.78em',
+        height: '0.78em',
+        marginTop: '-0.06em',
+        marginLeft: '0.02em',
+        color: '#d4b47f',
+        lineHeight: 1,
+      }}
+    >
       <svg viewBox="0 0 64 64" focusable="false">
-        <path d="M7 8 L32 55 L57 8" />
-        <path d="M16 8 L32 38 L48 8" />
-        <path d="M25 8 L32 21 L39 8" />
+        <path
+          d="M7 8 L32 55 L57 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="4.5"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
+        <path
+          d="M16 8 L32 38 L48 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="4.5"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
+        <path
+          d="M25 8 L32 21 L39 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="4.5"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
       </svg>
     </span>
   )
 }
 
-  return <span className="arrow" aria-hidden="true">↗</span>
-}
-
 function getImageUrl(image) {
   if (!image) return ''
+
   if (image.startsWith('/uploads/')) {
     return `${API_BASE}${image}`
   }
+
   return image
 }
 
@@ -60,9 +97,11 @@ function App() {
   const [trackOrderLoading, setTrackOrderLoading] = useState(false)
   const [trackOrderError, setTrackOrderError] = useState('')
   const [trackedOrder, setTrackedOrder] = useState(null)
-// Side search for the live fragrance catalogue
-const [searchQuery, setSearchQuery] = useState('')
-const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+  // Side search for the fragrance catalogue.
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+
   const [customer, setCustomer] = useState({
     name: '',
     phone: '',
@@ -91,21 +130,22 @@ const [isSearchOpen, setIsSearchOpen] = useState(false)
     (total, item) => total + item.price * item.quantity,
     0,
   )
-// Filter fragrances by name or description
-const normalizedSearchQuery = searchQuery.trim().toLowerCase()
 
-const filteredProducts = products.filter((product) =>
-  `${product.name} ${product.description}`
-    .toLowerCase()
-    .includes(normalizedSearchQuery)
-)
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase()
 
-// Focus the input when the search panel opens
-useEffect(() => {
-  if (isSearchOpen) {
-    sideSearchInputRef.current?.focus()
-  }
-}, [isSearchOpen])
+  const filteredProducts = products.filter((product) =>
+    `${product.name} ${product.description}`
+      .toLowerCase()
+      .includes(normalizedSearchQuery),
+  )
+
+  // Focus the search input when the panel opens.
+  useEffect(() => {
+    if (isSearchOpen) {
+      sideSearchInputRef.current?.focus()
+    }
+  }, [isSearchOpen])
+
   // Fetch the current product catalogue from the backend.
   useEffect(() => {
     const controller = new AbortController()
@@ -503,143 +543,143 @@ useEffect(() => {
           </a>
         </div>
       </header>
-{/* Side search and Instagram shortcuts */}
-<aside className="side-utility" aria-label="Store shortcuts">
-  <div
-    className="side-search-panel"
-    id="side-search-panel"
-    hidden={!isSearchOpen}
-  >
-    <div className="side-search-panel-heading">
-      <div>
-        <p className="side-search-eyebrow">THE VELSHE EDIT</p>
-        <h2>Find your signature.</h2>
-      </div>
 
-      <button
-        className="side-search-close"
-        type="button"
-        onClick={() => setIsSearchOpen(false)}
-        aria-label="Close search"
-      >
-        ×
-      </button>
-    </div>
-
-    <form
-      className="side-search-form"
-      role="search"
-      onSubmit={(event) => {
-        event.preventDefault()
-        setIsSearchOpen(false)
-
-        document.getElementById('collection')?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        })
-      }}
-    >
-      <label htmlFor="side-search-input">
-        SEARCH FRAGRANCES
-      </label>
-
-      <div className="side-search-input-wrap">
-        <svg
-          className="side-search-input-icon"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
+      {/* Side search and Instagram shortcuts */}
+      <aside className="side-utility" aria-label="Store shortcuts">
+        <div
+          className="side-search-panel"
+          id="side-search-panel"
+          hidden={!isSearchOpen}
         >
-          <circle cx="10.8" cy="10.8" r="6.3" />
-          <path d="m15.5 15.5 4.2 4.2" />
-        </svg>
+          <div className="side-search-panel-heading">
+            <div>
+              <p className="side-search-eyebrow">THE VELSHE EDIT</p>
+              <h2>Find your signature.</h2>
+            </div>
 
-        <input
-          ref={sideSearchInputRef}
-          id="side-search-input"
-          type="search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Try Forbidden..."
-          autoComplete="off"
-        />
+            <button
+              className="side-search-close"
+              type="button"
+              onClick={() => setIsSearchOpen(false)}
+              aria-label="Close search"
+            >
+              ×
+            </button>
+          </div>
 
-        {searchQuery && (
-          <button
-            className="side-search-clear"
-            type="button"
-            onClick={() => setSearchQuery('')}
-            aria-label="Clear search"
+          <form
+            className="side-search-form"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setIsSearchOpen(false)
+
+              document.getElementById('collection')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              })
+            }}
           >
-            ×
+            <label htmlFor="side-search-input">
+              SEARCH FRAGRANCES
+            </label>
+
+            <div className="side-search-input-wrap">
+              <svg
+                className="side-search-input-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle cx="10.8" cy="10.8" r="6.3" />
+                <path d="m15.5 15.5 4.2 4.2" />
+              </svg>
+
+              <input
+                ref={sideSearchInputRef}
+                id="side-search-input"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Try Forbidden..."
+                autoComplete="off"
+              />
+
+              {searchQuery && (
+                <button
+                  className="side-search-clear"
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <p className="side-search-status" aria-live="polite">
+              {searchQuery.trim()
+                ? `${filteredProducts.length} ${
+                    filteredProducts.length === 1
+                      ? 'fragrance'
+                      : 'fragrances'
+                  } found`
+                : 'Search by fragrance name or description'}
+            </p>
+
+            <button className="side-search-submit" type="submit">
+              VIEW RESULTS <Arrow />
+            </button>
+          </form>
+        </div>
+
+        <div className="side-utility-rail">
+          <button
+            className="side-utility-control side-search-toggle"
+            type="button"
+            aria-expanded={isSearchOpen}
+            aria-controls="side-search-panel"
+            onClick={() => setIsSearchOpen((open) => !open)}
+            aria-label={
+              isSearchOpen
+                ? 'Close fragrance search'
+                : 'Open fragrance search'
+            }
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10.8" cy="10.8" r="6.3" />
+              <path d="m15.5 15.5 4.2 4.2" />
+            </svg>
+            <span>SEARCH</span>
           </button>
-        )}
-      </div>
 
-      <p className="side-search-status" aria-live="polite">
-        {searchQuery.trim()
-          ? `${filteredProducts.length} ${
-              filteredProducts.length === 1
-                ? 'fragrance'
-                : 'fragrances'
-            } found`
-          : 'Search by fragrance name or description'}
-      </p>
+          <a
+            className="side-utility-control side-instagram-link"
+            href="https://www.instagram.com/velsheperfume/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Visit VELSHE on Instagram, @velsheperfume"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect
+                x="3.3"
+                y="3.3"
+                width="17.4"
+                height="17.4"
+                rx="5.1"
+              />
+              <circle cx="12" cy="12" r="4.1" />
+              <circle
+                className="side-instagram-dot"
+                cx="17.6"
+                cy="6.7"
+                r="1"
+              />
+            </svg>
+            <span>@velsheperfume</span>
+          </a>
+        </div>
+      </aside>
 
-      <button className="side-search-submit" type="submit">
-        VIEW RESULTS <Arrow />
-      </button>
-    </form>
-  </div>
-
-  <div className="side-utility-rail">
-    <button
-      className="side-utility-control side-search-toggle"
-      type="button"
-      aria-expanded={isSearchOpen}
-      aria-controls="side-search-panel"
-      onClick={() => setIsSearchOpen((open) => !open)}
-      aria-label={
-        isSearchOpen
-          ? 'Close fragrance search'
-          : 'Open fragrance search'
-      }
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="10.8" cy="10.8" r="6.3" />
-        <path d="m15.5 15.5 4.2 4.2" />
-      </svg>
-
-      <span>SEARCH</span>
-    </button>
-
-    <a
-      className="side-utility-control side-instagram-link"
-      href="https://www.instagram.com/velsheperfume/"
-      target="_blank"
-      rel="noreferrer"
-      aria-label="Visit VELSHE on Instagram, @velsheperfume"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect
-          x="3.3"
-          y="3.3"
-          width="17.4"
-          height="17.4"
-          rx="5.1"
-        />
-        <circle cx="12" cy="12" r="4.1" />
-        <circle
-          className="side-instagram-dot"
-          cx="17.6"
-          cy="6.7"
-          r="1"
-        />
-      </svg>
-
-      <span>@velsheperfume</span>
-    </a>
-  </div>
-</aside>
       {/* Cinematic hero */}
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
@@ -783,14 +823,14 @@ useEffect(() => {
                 TRY AGAIN
               </button>
             </div>
-         ) : products.length === 0 ? (
-  <p>No fragrances are available right now.</p>
-) : filteredProducts.length === 0 ? (
-  <p className="search-empty-state" role="status">
-    No fragrances match “{searchQuery}”. Try another search.
-  </p>
-) : (
-  filteredProducts.map((product) => (
+          ) : products.length === 0 ? (
+            <p>No fragrances are available right now.</p>
+          ) : filteredProducts.length === 0 ? (
+            <p className="search-empty-state" role="status">
+              No fragrances match “{searchQuery}”. Try another search.
+            </p>
+          ) : (
+            filteredProducts.map((product) => (
               <article
                 className="product-card reveal-on-scroll"
                 key={product.id}
@@ -1384,24 +1424,9 @@ useEffect(() => {
                       </label>
 
                       <label>
-                        <label>
-  Email address *
-  <input
-    required
-    type="email"
-    maxLength={254}
-    autoComplete="email"
-    value={customer.email}
-    disabled={orderSubmitting}
-    onChange={(event) =>
-      setCustomer((current) => ({
-        ...current,
-        email: event.target.value,
-      }))
-    }
-  />
-</label>
+                        Email address *
                         <input
+                          required
                           type="email"
                           maxLength={254}
                           autoComplete="email"
