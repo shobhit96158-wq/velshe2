@@ -1315,3 +1315,35 @@
     transition: none;
   }
 }
+/* VELSHE — per-order invoice download button */
+.admin-order-controls .admin-invoice-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid #b99762;
+  background: #071321;
+  color: #d4b47f;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.admin-order-controls .admin-invoice-download:hover {
+  border-color: #d4b47f;
+  background: #d4b47f;
+  color: #071321;
+}
+
+.admin-order-controls .admin-invoice-download:focus-visible {
+  outline: 2px solid #d4b47f;
+  outline-offset: 3px;
+}

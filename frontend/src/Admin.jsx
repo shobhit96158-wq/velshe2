@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react'
+import { jsPDF } from 'jspdf'
 import './Admin.css'
 
 const API_BASE = (
@@ -156,6 +157,379 @@ async function uploadAdminImage(file, token) {
   }
 
   return result.url
+}
+
+function downloadInvoice(order) {
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  })
+
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const margin = 16
+  const right = pageWidth - margin
+  const contentWidth = pageWidth - margin * 2
+
+  const navy = [7, 19, 33]
+  const gold = [212, 180, 127]
+  const ink = [41, 37, 31]
+  const muted = [110, 100, 85]
+  const pale = [243, 235, 221]
+
+  const safe = (value) =>
+    String(value ?? '').trim() || '-'
+
+  const currency = (amount) =>
+    `INR ${Number(amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+
+  const customer = order.customer || {}
+  const address = order.shippingAddress || {}
+  const items = Array.isArray(order.items) ? order.items : []
+
+  const orderNumber = String(
+    order.orderNumber || order._id || 'ORDER',
+  )
+
+  const orderDate = order.createdAt
+    ? formatDate(order.createdAt)
+    : new Date().toLocaleDateString('en-IN')
+
+  const deliveryAddress = [
+    address.addressLine1,
+    address.addressLine2,
+    address.landmark,
+    address.city,
+    address.state,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const drawWrapped = (
+    value,
+    x,
+    y,
+    maxWidth,
+    {
+      size = 9,
+      style = 'normal',
+      color = ink,
+      lineHeight = 4.5,
+    } = {},
+  ) => {
+    pdf.setFont('helvetica', style)
+    pdf.setFontSize(size)
+    pdf.setTextColor(...color)
+
+    const lines = pdf.splitTextToSize(safe(value), maxWidth)
+    pdf.text(lines, x, y)
+
+    return y + lines.length * lineHeight
+  }
+
+  const drawTableHeader = (y) => {
+    pdf.setFillColor(...pale)
+    pdf.rect(margin, y, contentWidth, 10, 'F')
+
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(8)
+    pdf.setTextColor(...ink)
+
+    pdf.text('ITEM', margin + 4, y + 6.5)
+    pdf.text('QTY', 124, y + 6.5, { align: 'center' })
+    pdf.text('UNIT PRICE', 158, y + 6.5, { align: 'right' })
+    pdf.text('AMOUNT', right - 3, y + 6.5, {
+      align: 'right',
+    })
+  }
+
+  // Branded invoice header.
+  pdf.setFillColor(...navy)
+  pdf.rect(0, 0, pageWidth, 38, 'F')
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(24)
+  pdf.setTextColor(...gold)
+  pdf.text('VELSHE', margin, 18)
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.text('FRAGRANCE, REIMAGINED.', margin, 25)
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(18)
+  pdf.setTextColor(255, 250, 241)
+  pdf.text('ORDER INVOICE', right, 19, {
+    align: 'right',
+  })
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(...gold)
+  pdf.text('CUSTOMER ORDER RECORD', right, 26, {
+    align: 'right',
+  })
+
+  // Order details.
+  let y = 51
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(9)
+  pdf.setTextColor(...ink)
+  pdf.text(`Order No: ${orderNumber}`, margin, y)
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.text(`Date: ${orderDate}`, right, y, {
+    align: 'right',
+  })
+
+  y += 7
+
+  pdf.text(
+    `Order status: ${formatStatus(order.status)}`,
+    margin,
+    y,
+  )
+
+  pdf.text(
+    `Payment: ${formatStatus(order.paymentMethod)}`,
+    right,
+    y,
+    { align: 'right' },
+  )
+
+  y += 8
+
+  pdf.setDrawColor(...gold)
+  pdf.setLineWidth(0.4)
+  pdf.line(margin, y, right, y)
+
+  // Customer and delivery information.
+  y += 12
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(10)
+  pdf.setTextColor(...gold)
+  pdf.text('CUSTOMER', margin, y)
+  pdf.text('DELIVERY ADDRESS', 112, y)
+
+  let customerY = y + 8
+  let addressY = y + 8
+
+  customerY = drawWrapped(
+    customer.name || 'Customer not provided',
+    margin,
+    customerY,
+    78,
+    { style: 'bold' },
+  )
+
+  customerY += 2
+
+  customerY = drawWrapped(
+    customer.phone || 'Phone not provided',
+    margin,
+    customerY,
+    78,
+    { color: muted },
+  )
+
+  if (customer.email) {
+    customerY += 1
+    customerY = drawWrapped(
+      customer.email,
+      margin,
+      customerY,
+      78,
+      { color: muted },
+    )
+  }
+
+  addressY = drawWrapped(
+    deliveryAddress || 'No delivery address recorded',
+    112,
+    addressY,
+    right - 112,
+    { color: muted },
+  )
+
+  y = Math.max(customerY, addressY) + 8
+
+  // Product table.
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(10)
+  pdf.setTextColor(...ink)
+  pdf.text('ORDER ITEMS', margin, y)
+
+  y += 5
+  drawTableHeader(y)
+  y += 14
+
+  const calculatedTotal = items.reduce(
+    (sum, item) =>
+      sum +
+      Number(item.price || 0) *
+        Number(item.quantity || 1),
+    0,
+  )
+
+  items.forEach((item) => {
+    const name =
+      item.name ||
+      item.productName ||
+      item.product?.name ||
+      'Fragrance'
+
+    const quantity = Number(item.quantity || 1)
+    const unitPrice = Number(item.price || 0)
+    const amount = unitPrice * quantity
+
+    const nameLines = pdf.splitTextToSize(
+      safe(name),
+      94,
+    )
+
+    const rowHeight = Math.max(
+      10,
+      nameLines.length * 4.5 + 4,
+    )
+
+    // Start a new page for long orders.
+    if (y + rowHeight > 250) {
+      pdf.addPage()
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(11)
+      pdf.setTextColor(...navy)
+      pdf.text(
+        `VELSHE | INVOICE ${orderNumber}`,
+        margin,
+        16,
+      )
+
+      y = 22
+      drawTableHeader(y)
+      y += 14
+    }
+
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(9)
+    pdf.setTextColor(...ink)
+    pdf.text(nameLines, margin + 4, y + 4.5)
+
+    pdf.text(String(quantity), 124, y + 4.5, {
+      align: 'center',
+    })
+
+    pdf.text(currency(unitPrice), 158, y + 4.5, {
+      align: 'right',
+    })
+
+    pdf.text(currency(amount), right - 3, y + 4.5, {
+      align: 'right',
+    })
+
+    y += rowHeight
+
+    pdf.setDrawColor(226, 216, 201)
+    pdf.setLineWidth(0.2)
+    pdf.line(margin, y, right, y)
+
+    y += 2
+  })
+
+  if (items.length === 0) {
+    y = drawWrapped(
+      'No item details available for this order.',
+      margin + 4,
+      y,
+      contentWidth - 8,
+      { color: muted },
+    )
+    y += 4
+  }
+
+  // Keep the total and payment details together.
+  if (y + 55 > 270) {
+    pdf.addPage()
+    y = 24
+  }
+
+  y += 7
+
+  const orderTotal =
+    order.total == null
+      ? calculatedTotal
+      : Number(order.total)
+
+  pdf.setFillColor(...navy)
+  pdf.rect(margin, y, contentWidth, 19, 'F')
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(10)
+  pdf.setTextColor(...gold)
+  pdf.text('ORDER TOTAL', margin + 5, y + 8)
+
+  pdf.setFontSize(12)
+  pdf.setTextColor(255, 250, 241)
+  pdf.text(currency(orderTotal), right - 5, y + 8, {
+    align: 'right',
+  })
+
+  y += 27
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(9)
+  pdf.setTextColor(...muted)
+
+  pdf.text(
+    `Payment status: ${formatStatus(order.paymentStatus)}`,
+    margin,
+    y,
+  )
+
+  y += 6
+
+  pdf.text(
+    'Thank you for choosing VELSHE.',
+    margin,
+    y,
+  )
+
+  // Customer care details at the bottom of the final page.
+  const footerY = 278
+
+  pdf.setDrawColor(...gold)
+  pdf.line(margin, footerY - 6, right, footerY - 6)
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(...muted)
+
+  pdf.text(
+    'Customer care: velshe7@gmail.com',
+    margin,
+    footerY,
+  )
+
+  pdf.text(
+    '8090544819  |  8858702593',
+    right,
+    footerY,
+    { align: 'right' },
+  )
+
+  const safeOrderNumber = orderNumber.replace(
+    /[^a-z0-9_-]/gi,
+    '-',
+  )
+
+  pdf.save(`VELSHE-Invoice-${safeOrderNumber}.pdf`)
 }
 
 function Admin() {
@@ -1421,6 +1795,13 @@ function Admin() {
 
                       <div className="admin-order-controls">
                         <label>
+                          <button
+  className="admin-button admin-button-outline admin-invoice-download"
+  type="button"
+  onClick={() => downloadInvoice(order)}
+>
+  ↓ DOWNLOAD INVOICE PDF
+</button>
                           Update status
                           <select
                             value={status}
