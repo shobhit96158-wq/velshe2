@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
@@ -5,6 +6,7 @@ const crypto = require('crypto');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const sendOrderConfirmationEmail = require('../services/sendOrderConfirmationEmail');
+
 const router = express.Router();
 
 const SHIPPING_FEE = 0;
@@ -19,8 +21,6 @@ function text(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-// Customer order lookup rate limiting.
-// For production, use a shared rate limiter and preferably OTP verification.
 const orderLookupAttempts = new Map();
 const ORDER_LOOKUP_WINDOW_MS = 15 * 60 * 1000;
 const MAX_ORDER_LOOKUPS = 8;
@@ -28,7 +28,6 @@ const MAX_ORDER_LOOKUPS = 8;
 function normalizeOrderPhone(value) {
   let digits = String(value || '').replace(/\D/g, '');
 
-  // Accept Indian numbers with +91 or a leading zero.
   if (digits.length === 12 && digits.startsWith('91')) {
     digits = digits.slice(2);
   } else if (digits.length === 11 && digits.startsWith('0')) {
@@ -41,7 +40,6 @@ function normalizeOrderPhone(value) {
 function allowOrderLookup(ip) {
   const now = Date.now();
 
-  // Remove expired entries.
   for (const [storedIp, entry] of orderLookupAttempts.entries()) {
     if (entry.expiresAt <= now) {
       orderLookupAttempts.delete(storedIp);
@@ -64,12 +62,10 @@ function allowOrderLookup(ip) {
 
   entry.count += 1;
   orderLookupAttempts.set(ip, entry);
-
   return true;
 }
 
 // POST /api/orders/lookup
-// Verify an order number and checkout phone number.
 router.post('/lookup', async (req, res, next) => {
   try {
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';
@@ -104,7 +100,6 @@ router.post('/lookup', async (req, res, next) => {
 
     const savedPhone = normalizeOrderPhone(order?.customer?.phone);
 
-    // Never reveal whether an order number exists on its own.
     if (!order || !savedPhone || savedPhone !== suppliedPhone) {
       return res.status(404).json({
         success: false,
@@ -136,7 +131,7 @@ router.post('/lookup', async (req, res, next) => {
 });
 
 // POST /api/orders
-// Create a Cash on Delivery order using server-side prices.
+// Create a Cash on Delivery order.
 router.post('/', async (req, res, next) => {
   const body = req.body || {};
   const customer = body.customer || {};
@@ -146,7 +141,7 @@ router.post('/', async (req, res, next) => {
   if (body.paymentMethod && body.paymentMethod !== 'COD') {
     return res.status(400).json({
       success: false,
-      message: 'Cash on Delivery is the only payment method available right now.',
+      message: 'Use the dedicated payment endpoint for online payments.',
     });
   }
 
@@ -169,16 +164,15 @@ router.post('/', async (req, res, next) => {
   }
 
   if (
-  !email ||
-  email.length > 254 ||
-  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-) {
-  return res.status(400).json({
-    success: false,
-    message:
-      'Enter a valid email address to receive your order confirmation.',
-  });
-}
+    !email ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Enter a valid email address to receive your order confirmation.',
+    });
+  }
 
   const shippingAddress = {
     addressLine1: text(address.addressLine1),
@@ -219,7 +213,6 @@ router.post('/', async (req, res, next) => {
     });
   }
 
-  // Combine duplicate product IDs before checking stock.
   const quantities = new Map();
 
   for (const item of rawItems) {
@@ -270,20 +263,13 @@ router.post('/', async (req, res, next) => {
         }).session(session);
 
         if (!product) {
-          throw orderError(
-            404,
-            'A product in your bag is no longer available.'
-          );
+          throw orderError(404, 'A product in your bag is no longer available.');
         }
 
         if (product.stock < quantity) {
-          throw orderError(
-            409,
-            `${product.name} does not have enough stock.`
-          );
+          throw orderError(409, `${product.name} does not have enough stock.`);
         }
 
-        // Decrement stock atomically without allowing negative stock.
         const updateResult = await Product.updateOne(
           {
             _id: product._id,
@@ -303,7 +289,6 @@ router.post('/', async (req, res, next) => {
           );
         }
 
-        // Always use the price stored in MongoDB.
         const price = product.price;
         subtotal += price * quantity;
 
@@ -348,15 +333,16 @@ router.post('/', async (req, res, next) => {
 
       createdOrder = orders[0];
     });
-// Order is saved already. Email failure must not undo the order.
-try {
-  await sendOrderConfirmationEmail(createdOrder);
-} catch (emailError) {
-  console.error(
-    `Order ${createdOrder?.orderNumber} saved, but confirmation email failed:`,
-    emailError.message,
-  );
-}
+
+    try {
+      await sendOrderConfirmationEmail(createdOrder);
+    } catch (emailError) {
+      console.error(
+        `Order ${createdOrder?.orderNumber} saved, but confirmation email failed:`,
+        emailError.message
+      );
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Order created successfully.',

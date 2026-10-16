@@ -59,11 +59,33 @@ async function sendOrderConfirmationEmail(order) {
   const subtotal = money(order.subtotal);
   const shipping = money(order.shippingFee);
   const total = money(order.total);
+  const paymentMethod =
+  order.paymentMethod === 'RAZORPAY'
+    ? 'Online payment (Razorpay)'
+    : 'Cash on Delivery';
+
+const paymentStatusLabels = {
+  pending: 'Pending',
+  paid: 'Paid',
+  failed: 'Failed',
+  refunded: 'Refunded',
+};
+
+const paymentStatus =
+  paymentStatusLabels[order.paymentStatus] || 'Pending';
+
+const confirmationMessage =
+  order.paymentMethod === 'RAZORPAY' &&
+  order.paymentStatus === 'paid'
+    ? 'Your payment has been received and your order is confirmed.'
+    : order.paymentMethod === 'COD'
+      ? "We've received your Cash on Delivery order."
+      : "We've received your order request.";
 
   const text = `
 Hi ${order.customer?.name || 'there'},
 
-Thank you for choosing VELSHE. We've received your Cash on Delivery order.
+${confirmationMessage}
 
 Order number: ${order.orderNumber}
 
@@ -77,8 +99,8 @@ Subtotal: ${subtotal}
 Shipping: ${shipping}
 Total: ${total}
 
-Payment method: Cash on Delivery
-Payment status: Pending
+Payment method: ${paymentMethod}
+Payment status: ${paymentStatus}
 
 Please keep your order number for tracking.
 
@@ -105,7 +127,8 @@ VELSHE — Fragrance, reimagined.
           </h1>
 
           <p style="color:#74695c;font-size:14px;line-height:1.8;">
-            Thank you for choosing VELSHE. We've received your order request.
+            
+           ${escapeHtml(confirmationMessage)}
           </p>
 
           <div style="margin:24px 0;padding:18px;background:#f3ecdf;border:1px solid #e1d1b7;">
@@ -141,8 +164,8 @@ VELSHE — Fragrance, reimagined.
           </table>
 
           <div style="margin-top:24px;padding:16px;border:1px solid #e1d1b7;font-size:12px;">
-            <p><strong>Payment:</strong> Cash on Delivery</p>
-            <p><strong>Payment status:</strong> Pending</p>
+            <p><strong>Payment:</strong> ${escapeHtml(paymentMethod)}</p>
+<p><strong>Payment status:</strong> ${escapeHtml(paymentStatus)}</p>
           </div>
 
           <p style="margin-top:22px;font-size:12px;line-height:1.8;color:#74695c;">

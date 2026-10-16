@@ -602,22 +602,30 @@ router.patch('/orders/:id', requireAdmin, async (req, res, next) => {
         }
 
         // Restore stock when an order is cancelled.
-        if (body.status === 'cancelled') {
-          for (const item of order.items || []) {
-            const productId =
-              item.productId || item.product?._id || item.product;
-            const quantity = Number(item.quantity) || 0;
+        // Restore stock only if inventory was deducted previously.
+// COD deducts stock when the order is created.
+// Razorpay deducts stock after payment is verified.
+const shouldRestoreStock =
+  order.paymentMethod === 'COD' ||
+  (order.paymentMethod === 'RAZORPAY' &&
+    ['paid', 'refunded'].includes(order.paymentStatus));
 
-            if (productId && quantity > 0) {
-              await Product.updateOne(
-                { _id: productId },
-                { $inc: { stock: quantity } },
-                { session },
-              );
-            }
-          }
-        }
+if (body.status === 'cancelled' && shouldRestoreStock) {
+  for (const item of order.items || []) {
+    const productId =
+      item.productId || item.product?._id || item.product;
 
+    const quantity = Number(item.quantity) || 0;
+
+    if (productId && quantity > 0) {
+      await Product.updateOne(
+        { _id: productId },
+        { $inc: { stock: quantity } },
+        { session },
+      );
+    }
+  }
+}
         order.status = body.status;
       }
 

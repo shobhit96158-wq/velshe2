@@ -130,7 +130,7 @@ app.use(async (req, res, next) => {
 app.use('/api/products', require('./routes/products'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/orders', require('./routes/orders'));
-
+app.use('/api/payments', require('./routes/payments'));
 // ============================================
 // HEALTH CHECK
 // ============================================

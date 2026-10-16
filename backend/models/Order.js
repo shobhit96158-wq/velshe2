@@ -155,6 +155,21 @@ const orderSchema = new mongoose.Schema(
       default: 'pending',
     },
 
+    razorpayOrderId: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 100,
+      index: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 100,
+    },
+
     status: {
       type: String,
       enum: [
